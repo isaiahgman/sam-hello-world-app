@@ -50,10 +50,7 @@ export const createEmployee = async (event: APIGatewayProxyEvent): Promise<APIGa
 
         return {
             statusCode: 201,
-            body: JSON.stringify({
-                message: 'Employee created successfully',
-                data: newEmployee,
-            }),
+            body: JSON.stringify(newEmployee),
         };
     } catch (err) {
         console.log(err);
@@ -76,10 +73,7 @@ export const getEmployees = async (event: APIGatewayProxyEvent): Promise<APIGate
 
         return {
             statusCode: 200,
-            body: JSON.stringify({
-                message: 'Employees retrieved successfully',
-                data: result.Items || [],
-            }),
+            body: JSON.stringify(result.Items || []),
         };
     } catch (err) {
         console.log(err);
