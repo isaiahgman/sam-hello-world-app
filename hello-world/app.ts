@@ -1,14 +1,96 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
+import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
+import { DynamoDBDocumentClient, PutCommand, ScanCommand } from '@aws-sdk/lib-dynamodb';
+import { v4 as uuidv4 } from 'uuid';
 
-/**
- *
- * Event doc: https://docs.aws.amazon.com/apigateway/latest/developerguide/set-up-lambda-proxy-integrations.html#api-gateway-simple-proxy-for-lambda-input-format
- * @param {Object} event - API Gateway Lambda Proxy Input Format
- *
- * Return doc: https://docs.aws.amazon.com/apigateway/latest/developerguide/set-up-lambda-proxy-integrations.html
- * @returns {Object} object - API Gateway Lambda Proxy Output Format
- *
- */
+const client = DynamoDBDocumentClient.from(new DynamoDBClient({}));
+
+// Define the Employee interface
+export interface Employee {
+    id?: string; // Auto-generated ID
+    name: string;
+    position: string;
+    level: 'junior' | 'mid' | 'senior';
+}
+
+export const createEmployee = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+    try {
+        if (!event.body) {
+            return {
+                statusCode: 400,
+                body: JSON.stringify({
+                    message: 'Missing request body',
+                }),
+            };
+        }
+
+        const data: Partial<Employee> = JSON.parse(event.body);
+
+        // validation
+        if (!data.name || !data.position || !['junior', 'mid', 'senior'].includes(data.level || '')) {
+            return {
+                statusCode: 400,
+                body: JSON.stringify({ message: 'Invalid request data' }),
+            };
+        }
+
+        const newEmployee: Employee = {
+            id: uuidv4(), // Generate a random unique ID
+            name: data.name,
+            position: data.position,
+            level: data.level as 'junior' | 'mid' | 'senior',
+        };
+
+        await client.send(
+            new PutCommand({
+                TableName: 'EmployeeTable',
+                Item: newEmployee,
+            }),
+        );
+
+        return {
+            statusCode: 201,
+            body: JSON.stringify({
+                message: 'Employee created successfully',
+                data: newEmployee,
+            }),
+        };
+    } catch (err) {
+        console.log(err);
+        return {
+            statusCode: 500,
+            body: JSON.stringify({
+                message: 'some error happened',
+            }),
+        };
+    }
+};
+
+export const getEmployees = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+    try {
+        const result = await client.send(
+            new ScanCommand({
+                TableName: 'EmployeeTable',
+            }),
+        );
+
+        return {
+            statusCode: 200,
+            body: JSON.stringify({
+                message: 'Employees retrieved successfully',
+                data: result.Items || [],
+            }),
+        };
+    } catch (err) {
+        console.log(err);
+        return {
+            statusCode: 500,
+            body: JSON.stringify({
+                message: 'some error happened',
+            }),
+        };
+    }
+};
 
 export const lambdaHandler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
     try {
